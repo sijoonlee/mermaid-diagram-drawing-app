@@ -68,6 +68,14 @@ test('a cycle does not collapse the layout into one column', async ({ page }) =>
   expect(byId.db.x).not.toBe(byId.retry.x);
   // and the cycle member ranks below the node it loops back to
   expect(byId.task.y).toBeLessThan(byId.retry.y);
+
+  // the loop edge bows out beside the flow instead of hiding under it
+  const loop = stored.edges.find(
+    (e: { source: { nodeId: string }; target: { nodeId: string } }) =>
+      e.source.nodeId === 'retry' && e.target.nodeId === 'task',
+  );
+  expect(loop.source.side).toBe('right');
+  expect(loop.target.side).toBe('right');
 });
 
 test('typed mermaid shapes map onto canvas shapes', async ({ page }) => {

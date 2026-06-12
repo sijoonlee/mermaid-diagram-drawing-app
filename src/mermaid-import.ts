@@ -61,9 +61,11 @@ export async function flowchartToModel(
   const links = dbApi.getEdges().filter((l) => ids.has(l.start) && ids.has(l.end));
   const dir = (dbApi.getDirection() ?? 'TB').toUpperCase();
 
-  const auto = autoLayout(vertices.map((v) => v.id), links, dir);
+  const idList = vertices.map((v) => v.id);
+  const rank = computeRanks(idList, links);
+  const auto = placeByRank(idList, rank, dir);
   // ids from the text become canvas ids; keep uid() ahead of them
-  syncIdCounter(vertices.map((v) => v.id));
+  syncIdCounter(idList);
 
   const nodes: NodeModel[] = vertices.map((v) => {
     const p = keepPositions.get(v.id) ?? auto.get(v.id)!;
@@ -78,19 +80,41 @@ export async function flowchartToModel(
     };
   });
 
-  const [srcSide, tgtSide] = edgeSides(dir);
-  const edges: EdgeModel[] = links.map((l) => ({
-    id: uid('e'),
-    label: l.text?.trim() || undefined,
-    source: { kind: 'attached', nodeId: l.start, side: srcSide },
-    target: { kind: 'attached', nodeId: l.end, side: tgtSide },
-  }));
+  const pos = new Map(nodes.map((n) => [n.id, { x: n.x, y: n.y }]));
+  const edges: EdgeModel[] = links.map((l) => {
+    const [srcSide, tgtSide] = linkSides(l, rank, pos, dir);
+    return {
+      id: uid('e'),
+      label: l.text?.trim() || undefined,
+      source: { kind: 'attached', nodeId: l.start, side: srcSide },
+      target: { kind: 'attached', nodeId: l.end, side: tgtSide },
+    };
+  });
 
   return { nodes, edges };
 }
 
-/** Which box sides an edge should leave/enter for the flow direction. */
-function edgeSides(dir: string): [Side, Side] {
+/**
+ * Which box sides an edge should leave/enter. Forward edges follow the flow
+ * direction; same-rank edges connect facing sides; back edges (loops) bow
+ * out beside the flow, where the curve isn't buried under nodes and other
+ * arrows.
+ */
+function linkSides(
+  l: MermaidLink,
+  rank: Map<string, number>,
+  pos: Map<string, Point>,
+  dir: string,
+): [Side, Side] {
+  const vertical = dir !== 'LR' && dir !== 'RL';
+  const dr = rank.get(l.end)! - rank.get(l.start)!;
+  if (dr === 0) {
+    const a = pos.get(l.start)!;
+    const b = pos.get(l.end)!;
+    if (vertical) return b.x >= a.x ? ['right', 'left'] : ['left', 'right'];
+    return b.y >= a.y ? ['bottom', 'top'] : ['top', 'bottom'];
+  }
+  if (dr < 0) return vertical ? ['right', 'right'] : ['bottom', 'bottom'];
   switch (dir) {
     case 'LR': return ['right', 'left'];
     case 'RL': return ['left', 'right'];
@@ -100,12 +124,10 @@ function edgeSides(dir: string): [Side, Side] {
 }
 
 /**
- * Simple layered layout: nodes are ranked by longest path from the roots
- * via DFS, ignoring back edges (so cycles like `retry --> task` don't
- * collapse the ranking), then each rank becomes a centred row (or column,
- * for LR/RL).
+ * Rank nodes by longest path from the roots via DFS, ignoring back edges
+ * (so cycles like `retry --> task` don't collapse the ranking).
  */
-function autoLayout(ids: string[], links: MermaidLink[], dir: string): Map<string, Point> {
+function computeRanks(ids: string[], links: MermaidLink[]): Map<string, number> {
   const indeg = new Map(ids.map((id) => [id, 0]));
   const out = new Map<string, string[]>(ids.map((id) => [id, []]));
   for (const l of links) {
@@ -128,7 +150,11 @@ function autoLayout(ids: string[], links: MermaidLink[], dir: string): Map<strin
   for (const root of roots) visit(root, 0);
   // pure cycles / disconnected cycle components have no root; start anywhere
   for (const id of ids) if (!rank.has(id)) visit(id, 0);
+  return rank;
+}
 
+/** Each rank becomes a centred row (or column, for LR/RL). */
+function placeByRank(ids: string[], rank: Map<string, number>, dir: string): Map<string, Point> {
   const byRank: string[][] = [];
   for (const id of ids) {
     const r = rank.get(id)!;
