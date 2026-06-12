@@ -2,8 +2,10 @@ import './style.css';
 import { Canvas } from './canvas';
 import { generateMarkdown } from './generate';
 import { Inspector } from './inspector';
+import { buildPalette } from './palette';
 import { validateAndRender } from './preview';
 import { Store } from './state';
+import type { NodeShape } from './types';
 
 const svg = document.getElementById('canvas') as unknown as SVGSVGElement;
 const store = new Store();
@@ -19,11 +21,7 @@ store.onChange(() => localStorage.setItem(STORAGE_KEY, store.toJSON()));
 
 // ---- palette drag & drop ------------------------------------------------
 
-document.querySelectorAll<HTMLElement>('.palette-item').forEach((item) => {
-  item.addEventListener('dragstart', (e) => {
-    e.dataTransfer?.setData('text/tool', item.dataset.tool ?? '');
-  });
-});
+buildPalette(document.getElementById('palette-items')!);
 
 svg.addEventListener('dragover', (e) => {
   e.preventDefault();
@@ -35,8 +33,12 @@ svg.addEventListener('drop', (e) => {
   svg.classList.remove('dragover');
   const tool = e.dataTransfer?.getData('text/tool');
   const at = canvas.toLocal(e);
-  if (tool === 'box') store.addNode(at);
-  else if (tool === 'arrow') store.addEdge(at);
+  if (tool === 'box') {
+    const shape = (e.dataTransfer?.getData('text/shape') || 'rect') as NodeShape;
+    store.addNode(at, shape);
+  } else if (tool === 'arrow') {
+    store.addEdge(at);
+  }
 });
 
 // ---- keyboard -----------------------------------------------------------

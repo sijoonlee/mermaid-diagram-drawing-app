@@ -1,3 +1,4 @@
+import { SHAPES } from './shapes';
 import type { Store } from './state';
 
 /** Sanitize a label for use inside a mermaid `["..."]` node. */
@@ -19,7 +20,13 @@ export function generateMarkdown(store: Store): string {
   const lines: string[] = ['flowchart TD'];
 
   for (const n of store.nodes) {
-    lines.push(`    ${n.id}["${escapeLabel(n.label)}"]`);
+    const shape = n.shape ?? 'rect';
+    if (shape === 'rect') {
+      lines.push(`    ${n.id}["${escapeLabel(n.label)}"]`);
+    } else {
+      // typed syntax (v11.3+) for the non-default shapes
+      lines.push(`    ${n.id}@{ shape: ${SHAPES[shape].mermaid}, label: "${escapeLabel(n.label)}" }`);
+    }
   }
 
   for (const e of store.edges) {

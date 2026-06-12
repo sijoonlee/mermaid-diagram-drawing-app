@@ -1,8 +1,18 @@
 export type Side = 'top' | 'right' | 'bottom' | 'left';
 
+export type NodeShape =
+  | 'rect'
+  | 'rounded'
+  | 'stadium'
+  | 'circle'
+  | 'diamond'
+  | 'hexagon'
+  | 'cylinder';
+
 export interface NodeModel {
   id: string;
   label: string;
+  shape: NodeShape;
   x: number; // top-left
   y: number;
   w: number;

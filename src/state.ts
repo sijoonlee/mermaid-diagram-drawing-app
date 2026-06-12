@@ -1,4 +1,4 @@
-import type { EdgeModel, NodeModel, Point, Side } from './types';
+import type { EdgeModel, NodeModel, NodeShape, Point, Side } from './types';
 
 let counter = 0;
 export const uid = (prefix: string) => `${prefix}${++counter}`;
@@ -79,12 +79,13 @@ export class Store {
     this.emit();
   }
 
-  addNode(at: Point): NodeModel {
+  addNode(at: Point, shape: NodeShape = 'rect'): NodeModel {
     const w = 120;
     const h = 60;
     const node: NodeModel = {
       id: uid('n'),
       label: `Box ${this.nodes.length + 1}`,
+      shape,
       x: at.x - w / 2,
       y: at.y - h / 2,
       w,

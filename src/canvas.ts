@@ -1,4 +1,5 @@
 import { anchorPoint, Store } from './state';
+import { SHAPES } from './shapes';
 import type { EdgeModel, Endpoint, Point, Side } from './types';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -149,17 +150,17 @@ export class Canvas {
 
   private renderNode(node: ReturnType<Store['getNode']> & {}) {
     const selected = this.store.selectedNodes.has(node.id);
-    const rect = el('rect', {
-      x: node.x,
-      y: node.y,
-      width: node.w,
-      height: node.h,
-      rx: 6,
-      class: 'node-rect' + (selected ? ' selected' : ''),
-    });
-    rect.addEventListener('mousedown', (e) => this.startNodeDrag(e, node.id));
-    rect.addEventListener('dblclick', () => this.renameNode(node.id));
-    this.svg.appendChild(rect);
+    const { main, decorations } = SHAPES[node.shape ?? 'rect'].render(
+      node.x,
+      node.y,
+      node.w,
+      node.h,
+    );
+    main.setAttribute('class', 'node-rect' + (selected ? ' selected' : ''));
+    main.addEventListener('mousedown', (e) => this.startNodeDrag(e, node.id));
+    main.addEventListener('dblclick', () => this.renameNode(node.id));
+    this.svg.appendChild(main);
+    decorations.forEach((d) => this.svg.appendChild(d));
 
     const label = el('text', {
       x: node.x + node.w / 2,

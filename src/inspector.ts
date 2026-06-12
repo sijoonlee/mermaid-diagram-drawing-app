@@ -1,5 +1,6 @@
+import { SHAPE_ORDER, SHAPES } from './shapes';
 import { anchorPoint, Store } from './state';
-import type { Endpoint } from './types';
+import type { Endpoint, NodeShape } from './types';
 
 /**
  * Context panel for the current selection.
@@ -73,6 +74,13 @@ export class Inspector {
       this.store.emit();
     });
     this.root.append(input);
+
+    this.root.append(
+      shapeSelect(node.shape ?? 'rect', (shape) => {
+        node.shape = shape;
+        this.store.emit();
+      }),
+    );
 
     this.root.append(
       button('Delete box', 'danger', () => {
@@ -171,6 +179,23 @@ function field(label: string, value: string, onInput: (v: string) => void) {
   input.value = value;
   input.addEventListener('input', () => onInput(input.value));
   wrap.append(input);
+  return wrap;
+}
+
+function shapeSelect(current: NodeShape, onChange: (s: NodeShape) => void) {
+  const wrap = document.createElement('label');
+  wrap.className = 'insp-field';
+  wrap.append(tag('span', 'Shape'));
+  const sel = document.createElement('select');
+  for (const key of SHAPE_ORDER) {
+    const opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = SHAPES[key].label;
+    if (key === current) opt.selected = true;
+    sel.append(opt);
+  }
+  sel.addEventListener('change', () => onChange(sel.value as NodeShape));
+  wrap.append(sel);
   return wrap;
 }
 
