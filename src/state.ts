@@ -6,7 +6,7 @@ let counter = 0;
 export const uid = (prefix: string) => `${prefix}${++counter}`;
 
 /** Bump the id counter so generated ids never collide with loaded ones. */
-function syncCounter(ids: string[]) {
+export function syncIdCounter(ids: string[]) {
   for (const id of ids) {
     const n = parseInt(id.replace(/^\D+/, ''), 10);
     if (!Number.isNaN(n) && n > counter) counter = n;
@@ -156,16 +156,21 @@ export class Store {
       if (!data.edges.every((e: unknown) => isValidEdge(e, ids))) return false;
       // everything checks out — only now touch the store, so a bad file
       // can never leave it partially replaced
-      this.nodes = data.nodes;
-      this.edges = data.edges;
-      this.selectedNodes = new Set();
-      this.selectedEdge = null;
-      syncCounter([...this.nodes.map((n) => n.id), ...this.edges.map((e) => e.id)]);
-      this.emit();
+      this.replace(data.nodes, data.edges);
       return true;
     } catch {
       return false;
     }
+  }
+
+  /** Swap in a whole new diagram (JSON import, draw-from-markdown). */
+  replace(nodes: NodeModel[], edges: EdgeModel[]) {
+    this.nodes = nodes;
+    this.edges = edges;
+    this.selectedNodes = new Set();
+    this.selectedEdge = null;
+    syncIdCounter([...nodes.map((n) => n.id), ...edges.map((e) => e.id)]);
+    this.emit();
   }
 }
 

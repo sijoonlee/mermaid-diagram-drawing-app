@@ -27,6 +27,9 @@ library). Mermaid itself is used only to validate and render the preview.
 - **Save SVG** — download the rendered preview as a standalone `.svg` file.
 - **Paste & preview** — the markdown box is editable: paste any mermaid
   flowchart into it and the preview renders live as you type.
+- **Draw on canvas** — turn the markdown box's flowchart into editable boxes
+  and arrows. Boxes whose id already exists on the canvas keep their position;
+  everything else gets a simple auto-layout.
 - **Persistence** — your diagram auto-saves to `localStorage` and survives a
   reload; export/import as JSON.
 

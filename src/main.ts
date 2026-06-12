@@ -2,6 +2,7 @@ import './style.css';
 import { Canvas } from './canvas';
 import { download, svgBlob } from './export';
 import { generateMarkdown } from './generate';
+import { flowchartToModel } from './mermaid-import';
 import { Inspector } from './inspector';
 import { buildPalette } from './palette';
 import { validateAndRender } from './preview';
@@ -81,6 +82,24 @@ document.getElementById('generate-btn')!.addEventListener('click', () => {
   const md = generateMarkdown(store);
   mdEl.value = md;
   void renderPreview(md);
+});
+
+// markdown -> canvas: rebuild the diagram as editable boxes and arrows.
+// Boxes whose id is already on the canvas keep their position, so a
+// generate -> tweak -> draw round-trip doesn't scramble a manual layout.
+document.getElementById('draw-btn')!.addEventListener('click', async () => {
+  const md = mdEl.value;
+  if (!md.trim()) return;
+  try {
+    const keep = new Map(store.nodes.map((n) => [n.id, { x: n.x, y: n.y }]));
+    const { nodes, edges } = await flowchartToModel(md, keep);
+    store.replace(nodes, edges);
+    statusEl.textContent = `✓ Drew ${nodes.length} boxes and ${edges.length} arrows`;
+    statusEl.className = 'ok';
+  } catch (err) {
+    statusEl.textContent = `✗ ${err instanceof Error ? err.message : String(err)}`;
+    statusEl.className = 'err';
+  }
 });
 
 // the textarea is also an input: paste or edit mermaid and preview it live
