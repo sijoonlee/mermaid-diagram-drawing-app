@@ -39,11 +39,6 @@ svg.addEventListener('drop', (e) => {
   else if (tool === 'arrow') store.addEdge(at);
 });
 
-// click empty canvas clears selection
-svg.addEventListener('mousedown', (e) => {
-  if (e.target === svg) canvas.clearSelection();
-});
-
 // ---- keyboard -----------------------------------------------------------
 
 document.addEventListener('keydown', (e) => {

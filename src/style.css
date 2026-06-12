@@ -38,6 +38,8 @@ hr { border: none; border-top: 1px solid #e2e2e6; margin: 14px 0; }
 .anchor { fill: #fff; stroke: #94a3b8; stroke-width: 1.5; cursor: crosshair; }
 .anchor.active { fill: #22c55e; stroke: #16a34a; }
 
+.marquee { fill: rgba(59, 130, 246, .12); stroke: #3b82f6; stroke-width: 1; stroke-dasharray: 4 3; pointer-events: none; }
+
 .edge-line { stroke: #475569; stroke-width: 2; fill: none; pointer-events: none; }
 .edge-line.selected { stroke: #ef4444; stroke-width: 3; }
 .edge-label { font-size: 12px; fill: #334155; pointer-events: none; user-select: none; }

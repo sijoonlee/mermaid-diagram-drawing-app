@@ -11,10 +11,18 @@ function syncCounter(ids: string[]) {
   }
 }
 
+export type Selection =
+  | { type: 'none' }
+  | { type: 'node'; id: string }
+  | { type: 'edge'; id: string }
+  | { type: 'multi'; nodeIds: string[] };
+
 export class Store {
   nodes: NodeModel[] = [];
   edges: EdgeModel[] = [];
-  selection: { type: 'node' | 'edge'; id: string } | null = null;
+  // Nodes support multi-select; edges are single-select.
+  selectedNodes = new Set<string>();
+  selectedEdge: string | null = null;
 
   /** subscribers re-render on change */
   private listeners = new Set<() => void>();
@@ -27,6 +35,48 @@ export class Store {
 
   getNode(id: string) {
     return this.nodes.find((n) => n.id === id);
+  }
+
+  // ---- selection -------------------------------------------------------
+
+  /** Normalised view of the current selection for the inspector. */
+  selection(): Selection {
+    if (this.selectedEdge) return { type: 'edge', id: this.selectedEdge };
+    const ids = [...this.selectedNodes];
+    if (ids.length === 1) return { type: 'node', id: ids[0] };
+    if (ids.length > 1) return { type: 'multi', nodeIds: ids };
+    return { type: 'none' };
+  }
+
+  selectNode(id: string, additive = false) {
+    this.selectedEdge = null;
+    if (additive) {
+      if (this.selectedNodes.has(id)) this.selectedNodes.delete(id);
+      else this.selectedNodes.add(id);
+    } else {
+      this.selectedNodes = new Set([id]);
+    }
+    this.emit();
+  }
+
+  /** Replace the node selection wholesale (used by marquee). */
+  setNodeSelection(ids: Iterable<string>) {
+    this.selectedEdge = null;
+    this.selectedNodes = new Set(ids);
+    this.emit();
+  }
+
+  selectEdge(id: string) {
+    this.selectedNodes.clear();
+    this.selectedEdge = id;
+    this.emit();
+  }
+
+  clearSelection() {
+    if (this.selectedNodes.size === 0 && this.selectedEdge === null) return;
+    this.selectedNodes.clear();
+    this.selectedEdge = null;
+    this.emit();
   }
 
   addNode(at: Point): NodeModel {
@@ -57,32 +107,33 @@ export class Store {
   }
 
   deleteSelected() {
-    if (!this.selection) return;
-    if (this.selection.type === 'node') {
-      const id = this.selection.id;
-      const node = this.getNode(id); // capture before removal for detach points
-      // detach any edges that pointed at it, freezing them at the old anchor
+    const nodeIds = this.selectedNodes;
+    if (nodeIds.size) {
+      // detach edges touching any deleted node, freezing them at the old anchor
       for (const e of this.edges) {
         for (const key of ['source', 'target'] as const) {
           const ep = e[key];
-          if (ep.kind === 'attached' && ep.nodeId === id) {
-            const p = anchorPoint(node, ep.side);
+          if (ep.kind === 'attached' && nodeIds.has(ep.nodeId)) {
+            const p = anchorPoint(this.getNode(ep.nodeId), ep.side);
             e[key] = { kind: 'free', x: p?.x ?? 0, y: p?.y ?? 0 };
           }
         }
       }
-      this.nodes = this.nodes.filter((n) => n.id !== id);
-    } else {
-      this.edges = this.edges.filter((e) => e.id !== this.selection!.id);
+      this.nodes = this.nodes.filter((n) => !nodeIds.has(n.id));
     }
-    this.selection = null;
+    if (this.selectedEdge) {
+      this.edges = this.edges.filter((e) => e.id !== this.selectedEdge);
+    }
+    this.selectedNodes = new Set();
+    this.selectedEdge = null;
     this.emit();
   }
 
   clear() {
     this.nodes = [];
     this.edges = [];
-    this.selection = null;
+    this.selectedNodes = new Set();
+    this.selectedEdge = null;
     this.emit();
   }
 
@@ -99,7 +150,8 @@ export class Store {
       if (!Array.isArray(data.nodes) || !Array.isArray(data.edges)) return false;
       this.nodes = data.nodes as NodeModel[];
       this.edges = data.edges as EdgeModel[];
-      this.selection = null;
+      this.selectedNodes = new Set();
+      this.selectedEdge = null;
       syncCounter([...this.nodes.map((n) => n.id), ...this.edges.map((e) => e.id)]);
       this.emit();
       return true;

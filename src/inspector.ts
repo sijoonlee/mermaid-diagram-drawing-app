@@ -18,8 +18,16 @@ export class Inspector {
   }
 
   private key() {
-    const s = this.store.selection;
-    return s ? `${s.type}:${s.id}` : null;
+    const s = this.store.selection();
+    switch (s.type) {
+      case 'node':
+      case 'edge':
+        return `${s.type}:${s.id}`;
+      case 'multi':
+        return `multi:${s.nodeIds.join(',')}`;
+      case 'none':
+        return null;
+    }
   }
 
   private maybeRender() {
@@ -31,13 +39,26 @@ export class Inspector {
   private render() {
     this.lastKey = this.key();
     this.root.replaceChildren();
-    const sel = this.store.selection;
-    if (!sel) {
-      this.root.append(hint('Nothing selected. Click a box or arrow.'));
-      return;
+    const sel = this.store.selection();
+    switch (sel.type) {
+      case 'none':
+        this.root.append(hint('Nothing selected. Click a box or arrow.'));
+        return;
+      case 'node':
+        return this.renderNode(sel.id);
+      case 'edge':
+        return this.renderEdge(sel.id);
+      case 'multi':
+        return this.renderMulti(sel.nodeIds.length);
     }
-    if (sel.type === 'node') this.renderNode(sel.id);
-    else this.renderEdge(sel.id);
+  }
+
+  private renderMulti(count: number) {
+    this.root.append(tag('h3', `${count} boxes selected`));
+    this.root.append(hint('Drag any selected box to move them together.'));
+    this.root.append(
+      button('Delete selected', 'danger', () => this.store.deleteSelected()),
+    );
   }
 
   // ---- node -------------------------------------------------------------
@@ -55,7 +76,7 @@ export class Inspector {
 
     this.root.append(
       button('Delete box', 'danger', () => {
-        this.store.selection = { type: 'node', id };
+        this.store.selectNode(id);
         this.store.deleteSelected();
       }),
     );
@@ -89,7 +110,7 @@ export class Inspector {
     );
     this.root.append(
       button('Delete arrow', 'danger', () => {
-        this.store.selection = { type: 'edge', id };
+        this.store.selectEdge(id);
         this.store.deleteSelected();
       }),
     );

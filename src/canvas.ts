@@ -20,6 +20,30 @@ function endpointPoint(store: Store, ep: Endpoint): Point {
   return anchorPoint(store.getNode(ep.nodeId), ep.side) ?? { x: 0, y: 0 };
 }
 
+interface Rect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** Normalised rect between two corner points. */
+function rectOf(a: Point, b: Point): Rect {
+  return {
+    x: Math.min(a.x, b.x),
+    y: Math.min(a.y, b.y),
+    width: Math.abs(a.x - b.x),
+    height: Math.abs(a.y - b.y),
+  };
+}
+
+/** AABB overlap test (node carries x/y/w/h). */
+function rectsOverlap(r: Rect, n: { x: number; y: number; w: number; h: number }): boolean {
+  return (
+    r.x < n.x + n.w && r.x + r.width > n.x && r.y < n.y + n.h && r.y + r.height > n.y
+  );
+}
+
 /** Outward normal of a box side. */
 const SIDE_NORMAL: Record<Side, Point> = {
   top: { x: 0, y: -1 },
@@ -59,8 +83,9 @@ export class Canvas {
   private svg: SVGSVGElement;
   // active gesture, tracked on the document so full re-renders don't break it
   private gesture:
-    | { type: 'node'; id: string; dx: number; dy: number }
+    | { type: 'nodes'; origin: Point; starts: Map<string, Point> }
     | { type: 'endpoint'; edge: EdgeModel; which: 'source' | 'target' }
+    | { type: 'marquee'; start: Point; current: Point; base: Set<string> }
     | null = null;
   private hoverAnchor: { nodeId: string; side: Side } | null = null;
 
@@ -72,6 +97,10 @@ export class Canvas {
     store.onChange(() => this.render());
     document.addEventListener('mousemove', this.onMove);
     document.addEventListener('mouseup', this.onUp);
+    // empty-canvas press starts a rubber-band selection
+    svg.addEventListener('mousedown', (e) => {
+      if (e.target === svg) this.startMarquee(e);
+    });
     this.render();
   }
 
@@ -93,6 +122,13 @@ export class Canvas {
     for (const node of s.nodes) this.renderNode(node);
     // endpoints on top of everything so they stay grabbable
     for (const edge of s.edges) this.renderEndpoints(edge);
+
+    if (this.gesture?.type === 'marquee') {
+      const r = rectOf(this.gesture.start, this.gesture.current);
+      this.svg.appendChild(
+        el('rect', { ...r, class: 'marquee', rx: 2 } as Record<string, number | string>),
+      );
+    }
   }
 
   private arrowDefs(): SVGDefsElement {
@@ -112,14 +148,14 @@ export class Canvas {
   }
 
   private renderNode(node: ReturnType<Store['getNode']> & {}) {
-    const sel = this.store.selection;
+    const selected = this.store.selectedNodes.has(node.id);
     const rect = el('rect', {
       x: node.x,
       y: node.y,
       width: node.w,
       height: node.h,
       rx: 6,
-      class: 'node-rect' + (sel?.type === 'node' && sel.id === node.id ? ' selected' : ''),
+      class: 'node-rect' + (selected ? ' selected' : ''),
     });
     rect.addEventListener('mousedown', (e) => this.startNodeDrag(e, node.id));
     rect.addEventListener('dblclick', () => this.renameNode(node.id));
@@ -159,14 +195,13 @@ export class Canvas {
       leaveDir(edge.source, a, b),
       leaveDir(edge.target, b, a),
     );
-    const selected =
-      this.store.selection?.type === 'edge' && this.store.selection.id === edge.id;
+    const selected = this.store.selectedEdge === edge.id;
 
     // wide invisible hit area so the thin curve is easy to click
     const hit = el('path', { d, fill: 'none', stroke: 'transparent', 'stroke-width': 14 });
     const onPick = (e: MouseEvent) => {
       e.stopPropagation();
-      this.select('edge', edge.id);
+      this.store.selectEdge(edge.id);
     };
     hit.addEventListener('mousedown', onPick);
     hit.addEventListener('dblclick', () => this.editEdgeLabel(edge.id));
@@ -237,16 +272,8 @@ export class Canvas {
 
   // ---- selection / editing --------------------------------------------
 
-  private select(type: 'node' | 'edge', id: string) {
-    this.store.selection = { type, id };
-    this.store.emit();
-  }
-
   clearSelection() {
-    if (this.store.selection) {
-      this.store.selection = null;
-      this.store.emit();
-    }
+    this.store.clearSelection();
   }
 
   private renameNode(id: string) {
@@ -264,11 +291,31 @@ export class Canvas {
   private startNodeDrag(e: MouseEvent, id: string) {
     e.preventDefault();
     e.stopPropagation();
-    const node = this.store.getNode(id);
-    if (!node) return;
+
+    // Shift toggles membership without dragging.
+    if (e.shiftKey) {
+      this.store.selectNode(id, true);
+      return;
+    }
+    // Plain click on a node outside the current selection re-selects just it;
+    // clicking a node already in the selection keeps the whole group (to drag it).
+    if (!this.store.selectedNodes.has(id)) this.store.selectNode(id);
+
+    const origin = this.toLocal(e);
+    const starts = new Map<string, Point>();
+    for (const nid of this.store.selectedNodes) {
+      const n = this.store.getNode(nid);
+      if (n) starts.set(nid, { x: n.x, y: n.y });
+    }
+    this.gesture = { type: 'nodes', origin, starts };
+  }
+
+  private startMarquee(e: MouseEvent) {
     const m = this.toLocal(e);
-    this.gesture = { type: 'node', id, dx: m.x - node.x, dy: m.y - node.y };
-    this.select('node', id);
+    // Shift extends the existing selection; otherwise start fresh.
+    const base = e.shiftKey ? new Set(this.store.selectedNodes) : new Set<string>();
+    this.gesture = { type: 'marquee', start: m, current: m, base };
+    if (!e.shiftKey) this.store.clearSelection();
   }
 
   private startEndpointDrag(
@@ -279,20 +326,34 @@ export class Canvas {
     e.preventDefault();
     e.stopPropagation();
     this.gesture = { type: 'endpoint', edge, which };
-    this.select('edge', edge.id);
+    this.store.selectEdge(edge.id);
   }
 
   private onMove = (e: MouseEvent) => {
     if (!this.gesture) return;
     const m = this.toLocal(e);
 
-    if (this.gesture.type === 'node') {
-      const node = this.store.getNode(this.gesture.id);
-      if (node) {
-        node.x = m.x - this.gesture.dx;
-        node.y = m.y - this.gesture.dy;
-        this.store.emit();
+    if (this.gesture.type === 'nodes') {
+      const dx = m.x - this.gesture.origin.x;
+      const dy = m.y - this.gesture.origin.y;
+      for (const [id, start] of this.gesture.starts) {
+        const node = this.store.getNode(id);
+        if (node) {
+          node.x = start.x + dx;
+          node.y = start.y + dy;
+        }
       }
+      this.store.emit();
+      return;
+    }
+
+    if (this.gesture.type === 'marquee') {
+      this.gesture.current = m;
+      const box = rectOf(this.gesture.start, m);
+      const hits = this.store.nodes
+        .filter((n) => rectsOverlap(box, n))
+        .map((n) => n.id);
+      this.store.setNodeSelection(new Set([...this.gesture.base, ...hits]));
       return;
     }
 
@@ -318,7 +379,7 @@ export class Canvas {
     if (this.gesture?.type === 'endpoint') this.hoverAnchor = null;
     if (this.gesture) {
       this.gesture = null;
-      this.store.emit();
+      this.store.emit(); // also clears the marquee rect from the render
     }
   };
 
