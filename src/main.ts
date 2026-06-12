@@ -60,15 +60,34 @@ const previewEl = document.getElementById('preview') as HTMLElement;
 const statusEl = document.getElementById('status') as HTMLElement;
 const saveSvgBtn = document.getElementById('save-svg-btn') as HTMLButtonElement;
 
-document.getElementById('generate-btn')!.addEventListener('click', async () => {
-  const md = generateMarkdown(store);
-  mdEl.value = md;
+async function renderPreview(md: string) {
+  if (!md.trim()) {
+    previewEl.innerHTML = '';
+    statusEl.textContent = '';
+    statusEl.className = '';
+    saveSvgBtn.disabled = true;
+    return;
+  }
   statusEl.textContent = 'Validating…';
   statusEl.className = '';
   const result = await validateAndRender(md, previewEl);
+  if (result.stale) return; // a newer render owns the status line now
   statusEl.textContent = result.message;
   statusEl.className = result.ok ? 'ok' : 'err';
   saveSvgBtn.disabled = !result.ok;
+}
+
+document.getElementById('generate-btn')!.addEventListener('click', () => {
+  const md = generateMarkdown(store);
+  mdEl.value = md;
+  void renderPreview(md);
+});
+
+// the textarea is also an input: paste or edit mermaid and preview it live
+let mdDebounce: number | undefined;
+mdEl.addEventListener('input', () => {
+  clearTimeout(mdDebounce);
+  mdDebounce = window.setTimeout(() => void renderPreview(mdEl.value), 300);
 });
 
 saveSvgBtn.addEventListener('click', () => {
