@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { dropBox, generate, openApp } from './helpers';
+import { dropBox, generate, openApp, STORAGE_KEY } from './helpers';
 
 test.beforeEach(async ({ page }) => {
   await openApp(page);
@@ -44,6 +44,30 @@ test('Draw keeps the position of a box that is already on the canvas', async ({ 
   const after = await page.locator('.node-rect').boundingBox();
   expect(Math.abs(after!.x - before!.x)).toBeLessThan(2);
   expect(Math.abs(after!.y - before!.y)).toBeLessThan(2);
+});
+
+test('a cycle does not collapse the layout into one column', async ({ page }) => {
+  await page.locator('#md').fill(
+    `flowchart TD
+    start(["Start"]) --> task["Task"]
+    task --> check{"OK?"}
+    check -->|yes| db[("Save")]
+    check -->|no| retry{{"Retry"}}
+    retry --> task`,
+  );
+  await page.locator('#draw-btn').click();
+  await expect(page.locator('#status')).toHaveText('✓ Drew 5 boxes and 5 arrows');
+
+  const stored = await page.evaluate(
+    (k) => JSON.parse(localStorage.getItem(k)!),
+    STORAGE_KEY,
+  );
+  const byId = Object.fromEntries(stored.nodes.map((n: { id: string }) => [n.id, n]));
+  // the two branches of the decision share a rank, side by side
+  expect(byId.db.y).toBe(byId.retry.y);
+  expect(byId.db.x).not.toBe(byId.retry.x);
+  // and the cycle member ranks below the node it loops back to
+  expect(byId.task.y).toBeLessThan(byId.retry.y);
 });
 
 test('typed mermaid shapes map onto canvas shapes', async ({ page }) => {

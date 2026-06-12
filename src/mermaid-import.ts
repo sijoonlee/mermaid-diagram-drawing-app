@@ -100,9 +100,10 @@ function edgeSides(dir: string): [Side, Side] {
 }
 
 /**
- * Simple layered layout: Kahn's algorithm ranks nodes by longest path from
- * the roots (cycle leftovers are appended below), then each rank becomes a
- * centred row (or column, for LR/RL).
+ * Simple layered layout: nodes are ranked by longest path from the roots
+ * via DFS, ignoring back edges (so cycles like `retry --> task` don't
+ * collapse the ranking), then each rank becomes a centred row (or column,
+ * for LR/RL).
  */
 function autoLayout(ids: string[], links: MermaidLink[], dir: string): Map<string, Point> {
   const indeg = new Map(ids.map((id) => [id, 0]));
@@ -114,18 +115,19 @@ function autoLayout(ids: string[], links: MermaidLink[], dir: string): Map<strin
   }
 
   const rank = new Map<string, number>();
-  const queue = ids.filter((id) => indeg.get(id) === 0);
-  for (const id of queue) rank.set(id, 0);
-  while (queue.length) {
-    const id = queue.shift()!;
-    for (const next of out.get(id)!) {
-      rank.set(next, Math.max(rank.get(next) ?? 0, rank.get(id)! + 1));
-      indeg.set(next, indeg.get(next)! - 1);
-      if (indeg.get(next) === 0) queue.push(next);
-    }
-  }
-  let tail = Math.max(-1, ...rank.values()) + 1;
-  for (const id of ids) if (!rank.has(id)) rank.set(id, tail++);
+  const inStack = new Set<string>();
+  const visit = (id: string, r: number) => {
+    if (inStack.has(id)) return; // back edge: a cycle member keeps its rank
+    if ((rank.get(id) ?? -1) >= r) return; // already at least this deep
+    rank.set(id, r);
+    inStack.add(id);
+    for (const next of out.get(id)!) visit(next, r + 1);
+    inStack.delete(id);
+  };
+  const roots = ids.filter((id) => indeg.get(id) === 0);
+  for (const root of roots) visit(root, 0);
+  // pure cycles / disconnected cycle components have no root; start anywhere
+  for (const id of ids) if (!rank.has(id)) visit(id, 0);
 
   const byRank: string[][] = [];
   for (const id of ids) {
