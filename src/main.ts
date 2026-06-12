@@ -1,5 +1,6 @@
 import './style.css';
 import { Canvas } from './canvas';
+import { download, svgBlob } from './export';
 import { generateMarkdown } from './generate';
 import { Inspector } from './inspector';
 import { buildPalette } from './palette';
@@ -57,6 +58,7 @@ document.addEventListener('keydown', (e) => {
 const mdEl = document.getElementById('md') as HTMLTextAreaElement;
 const previewEl = document.getElementById('preview') as HTMLElement;
 const statusEl = document.getElementById('status') as HTMLElement;
+const saveSvgBtn = document.getElementById('save-svg-btn') as HTMLButtonElement;
 
 document.getElementById('generate-btn')!.addEventListener('click', async () => {
   const md = generateMarkdown(store);
@@ -66,15 +68,16 @@ document.getElementById('generate-btn')!.addEventListener('click', async () => {
   const result = await validateAndRender(md, previewEl);
   statusEl.textContent = result.message;
   statusEl.className = result.ok ? 'ok' : 'err';
+  saveSvgBtn.disabled = !result.ok;
+});
+
+saveSvgBtn.addEventListener('click', () => {
+  const svg = previewEl.querySelector('svg');
+  if (svg) download(svgBlob(svg), 'diagram.svg');
 });
 
 document.getElementById('export-btn')!.addEventListener('click', () => {
-  const blob = new Blob([store.toJSON()], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'diagram.json';
-  a.click();
-  URL.revokeObjectURL(a.href);
+  download(new Blob([store.toJSON()], { type: 'application/json' }), 'diagram.json');
 });
 
 const importFile = document.getElementById('import-file') as HTMLInputElement;
@@ -93,4 +96,5 @@ document.getElementById('clear-btn')!.addEventListener('click', () => {
   previewEl.innerHTML = '';
   statusEl.textContent = '';
   statusEl.className = '';
+  saveSvgBtn.disabled = true;
 });

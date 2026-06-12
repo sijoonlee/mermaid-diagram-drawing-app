@@ -24,6 +24,8 @@ library). Mermaid itself is used only to validate and render the preview.
   emitted as `A -->|label| B`.
 - **Generate + validate + preview** — one click produces Mermaid markdown,
   validates it with `mermaid.parse`, and renders the diagram.
+- **Save SVG** — after generating, download the rendered preview as a
+  standalone `.svg` file.
 - **Persistence** — your diagram auto-saves to `localStorage` and survives a
   reload; export/import as JSON.
 
