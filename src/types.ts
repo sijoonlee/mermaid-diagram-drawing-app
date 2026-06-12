@@ -1,5 +1,7 @@
 export type Side = 'top' | 'right' | 'bottom' | 'left';
 
+export const SIDES: Side[] = ['top', 'right', 'bottom', 'left'];
+
 export type NodeShape =
   | 'rect'
   | 'rounded'

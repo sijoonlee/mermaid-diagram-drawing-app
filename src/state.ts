@@ -1,4 +1,6 @@
-import type { EdgeModel, NodeModel, NodeShape, Point, Side } from './types';
+import { SHAPE_ORDER } from './shapes';
+import { SIDES } from './types';
+import type { EdgeModel, Endpoint, NodeModel, NodeShape, Point, Side } from './types';
 
 let counter = 0;
 export const uid = (prefix: string) => `${prefix}${++counter}`;
@@ -148,9 +150,14 @@ export class Store {
   load(json: string): boolean {
     try {
       const data = JSON.parse(json);
-      if (!Array.isArray(data.nodes) || !Array.isArray(data.edges)) return false;
-      this.nodes = data.nodes as NodeModel[];
-      this.edges = data.edges as EdgeModel[];
+      if (!Array.isArray(data?.nodes) || !Array.isArray(data?.edges)) return false;
+      if (!data.nodes.every(isValidNode)) return false;
+      const ids = new Set<string>(data.nodes.map((n: NodeModel) => n.id));
+      if (!data.edges.every((e: unknown) => isValidEdge(e, ids))) return false;
+      // everything checks out — only now touch the store, so a bad file
+      // can never leave it partially replaced
+      this.nodes = data.nodes;
+      this.edges = data.edges;
       this.selectedNodes = new Set();
       this.selectedEdge = null;
       syncCounter([...this.nodes.map((n) => n.id), ...this.edges.map((e) => e.id)]);
@@ -160,6 +167,40 @@ export class Store {
       return false;
     }
   }
+}
+
+// ---- import validation -----------------------------------------------
+
+function isValidNode(v: unknown): v is NodeModel {
+  const n = v as NodeModel;
+  return (
+    !!n &&
+    typeof n === 'object' &&
+    typeof n.id === 'string' &&
+    typeof n.label === 'string' &&
+    (n.shape === undefined || SHAPE_ORDER.includes(n.shape)) &&
+    [n.x, n.y, n.w, n.h].every(Number.isFinite)
+  );
+}
+
+function isValidEndpoint(v: unknown, nodeIds: Set<string>): v is Endpoint {
+  const ep = v as Endpoint;
+  if (!ep || typeof ep !== 'object') return false;
+  if (ep.kind === 'attached') return nodeIds.has(ep.nodeId) && SIDES.includes(ep.side);
+  if (ep.kind === 'free') return Number.isFinite(ep.x) && Number.isFinite(ep.y);
+  return false;
+}
+
+function isValidEdge(v: unknown, nodeIds: Set<string>): v is EdgeModel {
+  const e = v as EdgeModel;
+  return (
+    !!e &&
+    typeof e === 'object' &&
+    typeof e.id === 'string' &&
+    (e.label === undefined || typeof e.label === 'string') &&
+    isValidEndpoint(e.source, nodeIds) &&
+    isValidEndpoint(e.target, nodeIds)
+  );
 }
 
 /** Absolute point of a node's side anchor. */

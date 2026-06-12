@@ -1,10 +1,11 @@
 import { anchorPoint, Store } from './state';
 import { SHAPES } from './shapes';
+import { SIDES } from './types';
 import type { EdgeModel, Endpoint, Point, Side } from './types';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
-const SIDES: Side[] = ['top', 'right', 'bottom', 'left'];
 const ATTACH_RADIUS = 22; // px snap distance for endpoint -> anchor
+const DOUBLE_PRESS_MS = 400;
 
 function el<K extends keyof SVGElementTagNameMap>(
   tag: K,
@@ -89,6 +90,9 @@ export class Canvas {
     | { type: 'marquee'; start: Point; current: Point; base: Set<string> }
     | null = null;
   private hoverAnchor: { nodeId: string; side: Side } | null = null;
+  // Manual double-press detection: a store emit between presses rebuilds the
+  // SVG, so native click/dblclick (which need a stable target) never fire.
+  private lastPress: { key: string; t: number } | null = null;
 
   constructor(
     svg: SVGSVGElement,
@@ -158,7 +162,6 @@ export class Canvas {
     );
     main.setAttribute('class', 'node-rect' + (selected ? ' selected' : ''));
     main.addEventListener('mousedown', (e) => this.startNodeDrag(e, node.id));
-    main.addEventListener('dblclick', () => this.renameNode(node.id));
     this.svg.appendChild(main);
     decorations.forEach((d) => this.svg.appendChild(d));
 
@@ -202,10 +205,13 @@ export class Canvas {
     const hit = el('path', { d, fill: 'none', stroke: 'transparent', 'stroke-width': 14 });
     const onPick = (e: MouseEvent) => {
       e.stopPropagation();
+      if (this.isDoublePress(`edge:${edge.id}`)) {
+        this.editEdgeLabel(edge.id);
+        return;
+      }
       this.store.selectEdge(edge.id);
     };
     hit.addEventListener('mousedown', onPick);
-    hit.addEventListener('dblclick', () => this.editEdgeLabel(edge.id));
     this.svg.appendChild(hit);
 
     const path = el('path', {
@@ -289,6 +295,15 @@ export class Canvas {
 
   // ---- gestures --------------------------------------------------------
 
+  /** True when the same element was pressed twice within the double-press window. */
+  private isDoublePress(key: string): boolean {
+    const now = performance.now();
+    const isDouble =
+      this.lastPress?.key === key && now - this.lastPress.t < DOUBLE_PRESS_MS;
+    this.lastPress = isDouble ? null : { key, t: now };
+    return isDouble;
+  }
+
   private startNodeDrag(e: MouseEvent, id: string) {
     e.preventDefault();
     e.stopPropagation();
@@ -296,6 +311,10 @@ export class Canvas {
     // Shift toggles membership without dragging.
     if (e.shiftKey) {
       this.store.selectNode(id, true);
+      return;
+    }
+    if (this.isDoublePress(`node:${id}`)) {
+      this.renameNode(id);
       return;
     }
     // Plain click on a node outside the current selection re-selects just it;
@@ -337,6 +356,8 @@ export class Canvas {
     if (this.gesture.type === 'nodes') {
       const dx = m.x - this.gesture.origin.x;
       const dy = m.y - this.gesture.origin.y;
+      // an actual drag is not a click; don't let a fast re-press rename
+      if (Math.abs(dx) + Math.abs(dy) > 3) this.lastPress = null;
       for (const [id, start] of this.gesture.starts) {
         const node = this.store.getNode(id);
         if (node) {

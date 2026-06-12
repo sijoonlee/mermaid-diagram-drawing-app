@@ -45,8 +45,9 @@ svg.addEventListener('drop', (e) => {
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Delete' || e.key === 'Backspace') {
-    const tag = (e.target as HTMLElement)?.tagName;
-    if (tag === 'TEXTAREA' || tag === 'INPUT') return;
+    const t = e.target as HTMLElement | null;
+    if (t && (t.isContentEditable || ['TEXTAREA', 'INPUT', 'SELECT'].includes(t.tagName)))
+      return;
     store.deleteSelected();
   }
 });

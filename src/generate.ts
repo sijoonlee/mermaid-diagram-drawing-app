@@ -21,11 +21,13 @@ export function generateMarkdown(store: Store): string {
 
   for (const n of store.nodes) {
     const shape = n.shape ?? 'rect';
+    // mermaid rejects an empty quoted label (`n1[""]`); fall back to the id
+    const label = escapeLabel(n.label.trim() || n.id);
     if (shape === 'rect') {
-      lines.push(`    ${n.id}["${escapeLabel(n.label)}"]`);
+      lines.push(`    ${n.id}["${label}"]`);
     } else {
       // typed syntax (v11.3+) for the non-default shapes
-      lines.push(`    ${n.id}@{ shape: ${SHAPES[shape].mermaid}, label: "${escapeLabel(n.label)}" }`);
+      lines.push(`    ${n.id}@{ shape: ${SHAPES[shape].mermaid}, label: "${label}" }`);
     }
   }
 

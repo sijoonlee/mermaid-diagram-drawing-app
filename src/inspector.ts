@@ -33,7 +33,10 @@ export class Inspector {
 
   private maybeRender() {
     const k = this.key();
-    if (k === this.lastKey) return; // same element selected; live edits handle visuals
+    // Skip only while the user is editing inside the panel itself (so typing
+    // doesn't tear down the focused field). Canvas-driven changes to the same
+    // element — endpoint attach/detach, rename — must refresh the panel.
+    if (k === this.lastKey && this.root.contains(document.activeElement)) return;
     this.render();
   }
 
