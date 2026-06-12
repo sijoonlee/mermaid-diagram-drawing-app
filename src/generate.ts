@@ -1,0 +1,34 @@
+import type { Store } from './state';
+
+/** Sanitize a label for use inside a mermaid `["..."]` node. */
+function escapeLabel(label: string): string {
+  return label.replace(/"/g, '&quot;');
+}
+
+/** Edge labels use `|...|`; pipes and quotes must be neutralised. */
+function escapeEdgeLabel(label: string): string {
+  return label.replace(/"/g, '&quot;').replace(/\|/g, '&#124;');
+}
+
+/**
+ * Turn the visual model into flowchart markdown.
+ * Side-attachment is an editor concern; mermaid lays the graph out itself,
+ * so we only emit node-to-node edges for arrows whose BOTH ends are attached.
+ */
+export function generateMarkdown(store: Store): string {
+  const lines: string[] = ['flowchart TD'];
+
+  for (const n of store.nodes) {
+    lines.push(`    ${n.id}["${escapeLabel(n.label)}"]`);
+  }
+
+  for (const e of store.edges) {
+    if (e.source.kind === 'attached' && e.target.kind === 'attached') {
+      const label = e.label?.trim();
+      const arrow = label ? `-->|${escapeEdgeLabel(label)}|` : '-->';
+      lines.push(`    ${e.source.nodeId} ${arrow} ${e.target.nodeId}`);
+    }
+  }
+
+  return lines.join('\n');
+}

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mermaid Draw</title>
+  </head>
+  <body>
+    <div id="app">
+      <aside id="palette">
+        <h2>Palette</h2>
+        <div class="palette-item" draggable="true" data-tool="box">
+          <div class="palette-box">Box</div>
+          <span>Drag a Box</span>
+        </div>
+        <div class="palette-item" draggable="true" data-tool="arrow">
+          <div class="palette-arrow">→</div>
+          <span>Drag an Arrow</span>
+        </div>
+        <hr />
+        <button id="generate-btn">Generate &amp; Preview</button>
+        <button id="export-btn" class="secondary">Export JSON</button>
+        <button id="import-btn" class="secondary">Import JSON</button>
+        <button id="clear-btn" class="secondary">Clear canvas</button>
+        <input id="import-file" type="file" accept="application/json" hidden />
+        <p class="hint">
+          Drop a Box, then drop an Arrow. Drag an arrow's round endpoint onto a
+          box's side dot to attach it.
+        </p>
+      </aside>
+
+      <main id="canvas-wrap">
+        <svg id="canvas" xmlns="http://www.w3.org/2000/svg"></svg>
+      </main>
+
+      <aside id="output">
+        <h2>Mermaid markdown</h2>
+        <textarea id="md" spellcheck="false" placeholder="Click Generate…"></textarea>
+        <h2>Preview</h2>
+        <div id="status"></div>
+        <div id="preview"></div>
+      </aside>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

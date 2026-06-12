@@ -1,0 +1,54 @@
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; font-family: system-ui, sans-serif; }
+#app { display: grid; grid-template-columns: 220px 1fr 360px; height: 100vh; }
+
+aside { padding: 12px; overflow: auto; background: #f7f7f9; border-right: 1px solid #e2e2e6; }
+#output { border-right: none; border-left: 1px solid #e2e2e6; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: #666; margin: 12px 0 8px; }
+
+.palette-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px; margin-bottom: 10px; background: #fff;
+  border: 1px solid #d8d8de; border-radius: 8px; cursor: grab;
+}
+.palette-item:active { cursor: grabbing; }
+.palette-box { width: 46px; height: 30px; border: 2px solid #3b82f6; border-radius: 6px; background: #eff6ff; }
+.palette-arrow { width: 46px; text-align: center; font-size: 22px; color: #3b82f6; }
+.palette-item span { font-size: 13px; color: #444; }
+
+button {
+  width: 100%; padding: 10px; margin-bottom: 8px; border: none; border-radius: 8px;
+  background: #3b82f6; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+button.secondary { background: #e5e7eb; color: #333; }
+button:hover { filter: brightness(.96); }
+hr { border: none; border-top: 1px solid #e2e2e6; margin: 14px 0; }
+.hint { font-size: 12px; color: #777; line-height: 1.4; }
+
+#canvas-wrap { position: relative; overflow: hidden; background:
+  linear-gradient(#eee 1px, transparent 1px) 0 0 / 24px 24px,
+  linear-gradient(90deg, #eee 1px, transparent 1px) 0 0 / 24px 24px, #fff; }
+#canvas { width: 100%; height: 100%; display: block; }
+#canvas.dragover { outline: 3px dashed #3b82f6; outline-offset: -6px; }
+
+.node-rect { fill: #eff6ff; stroke: #3b82f6; stroke-width: 2; cursor: move; }
+.node-rect.selected { stroke: #1d4ed8; stroke-width: 3; }
+.node-label { font-size: 14px; fill: #1e293b; pointer-events: none; user-select: none; }
+
+.anchor { fill: #fff; stroke: #94a3b8; stroke-width: 1.5; cursor: crosshair; }
+.anchor.active { fill: #22c55e; stroke: #16a34a; }
+
+.edge-line { stroke: #475569; stroke-width: 2; fill: none; pointer-events: none; }
+.edge-line.selected { stroke: #ef4444; stroke-width: 3; }
+.edge-label { font-size: 12px; fill: #334155; pointer-events: none; user-select: none; }
+.endpoint { fill: #fff; stroke: #475569; stroke-width: 2; cursor: grab; }
+.endpoint.attached { fill: #22c55e; stroke: #16a34a; }
+.endpoint:active { cursor: grabbing; }
+
+#md { width: 100%; height: 150px; font-family: ui-monospace, monospace; font-size: 13px;
+  border: 1px solid #d8d8de; border-radius: 8px; padding: 8px; resize: vertical; }
+#preview { border: 1px solid #e2e2e6; border-radius: 8px; padding: 8px; min-height: 80px; background: #fff; }
+#preview svg { max-width: 100%; height: auto; }
+#status { font-size: 13px; margin-bottom: 8px; min-height: 18px; }
+#status.ok { color: #16a34a; }
+#status.err { color: #dc2626; white-space: pre-wrap; font-family: ui-monospace, monospace; }
