@@ -60,27 +60,23 @@ export class Store {
     if (!this.selection) return;
     if (this.selection.type === 'node') {
       const id = this.selection.id;
-      this.nodes = this.nodes.filter((n) => n.id !== id);
-      // detach any edges that pointed at it
+      const node = this.getNode(id); // capture before removal for detach points
+      // detach any edges that pointed at it, freezing them at the old anchor
       for (const e of this.edges) {
         for (const key of ['source', 'target'] as const) {
           const ep = e[key];
           if (ep.kind === 'attached' && ep.nodeId === id) {
-            const p = anchorPoint(this.getNodeById(id), ep.side);
+            const p = anchorPoint(node, ep.side);
             e[key] = { kind: 'free', x: p?.x ?? 0, y: p?.y ?? 0 };
           }
         }
       }
+      this.nodes = this.nodes.filter((n) => n.id !== id);
     } else {
       this.edges = this.edges.filter((e) => e.id !== this.selection!.id);
     }
     this.selection = null;
     this.emit();
-  }
-
-  // Used only inside deleteSelected before removal completes.
-  private getNodeById(id: string) {
-    return this.nodes.find((n) => n.id === id);
   }
 
   clear() {

@@ -1,12 +1,14 @@
 import './style.css';
 import { Canvas } from './canvas';
 import { generateMarkdown } from './generate';
+import { Inspector } from './inspector';
 import { validateAndRender } from './preview';
 import { Store } from './state';
 
 const svg = document.getElementById('canvas') as unknown as SVGSVGElement;
 const store = new Store();
 const canvas = new Canvas(svg, store);
+new Inspector(document.getElementById('inspector')!, store);
 
 // ---- persistence: restore on load, auto-save on every change ------------
 
