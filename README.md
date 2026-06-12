@@ -33,6 +33,14 @@ library). Mermaid itself is used only to validate and render the preview.
 - **Persistence** — your diagram auto-saves to `localStorage` and survives a
   reload; export/import as JSON.
 
+## Deploying to GitHub Pages
+
+`npm run build` produces a fully static bundle in `dist/` (relative asset
+paths, so it works from any URL). Pushing to `main` triggers
+`.github/workflows/deploy.yml`, which builds and publishes `dist/` — enable it
+once under **Settings → Pages → Source: GitHub Actions**. To deploy manually
+instead, copy `dist/` to any static host.
+
 ## Quick start
 
 ```bash
